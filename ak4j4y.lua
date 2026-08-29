@@ -1,17 +1,20 @@
 --[[
     sakura.gg
 
+    LocalScript for your own Roblox experience.
+
     FEATURES
     - Premium red/black UI
     - Right Alt opens/closes UI
-    - Hold Right Mouse Button (MouseButton2) to lock-on
+    - Hold Right Mouse Button to lock-on
     - Smooth camera lock-on
-    - Torso / UpperTorso targeting
+    - R15 UpperTorso / R6 Torso targeting
     - Velocity-based prediction
     - FOV-based target selection
     - Line-of-sight check
     - Adjustable aim smoothness
     - Adjustable prediction
+    - Adjustable FOV radius
     - FOV Circle
     - Respawn support
 ]]
@@ -37,8 +40,6 @@ local prediction = 0.12
 local fovRadius = 110
 
 local lockedTarget = nil
-
--- UI
 local uiVisible = true
 
 --==================================================
@@ -52,11 +53,9 @@ local DARK_RED = Color3.fromRGB(110, 0, 18)
 local BLACK = Color3.fromRGB(5, 5, 7)
 local PANEL = Color3.fromRGB(10, 10, 13)
 local DARK = Color3.fromRGB(16, 16, 20)
-local DARKER = Color3.fromRGB(12, 12, 15)
 
 local WHITE = Color3.fromRGB(245, 245, 248)
 local GRAY = Color3.fromRGB(145, 145, 153)
-local GREEN = Color3.fromRGB(80, 255, 145)
 
 --==================================================
 -- CHARACTER HELPERS
@@ -68,7 +67,6 @@ end
 
 local function getRoot()
 	local character = getCharacter()
-
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
@@ -93,6 +91,7 @@ main.Position = UDim2.new(0.5, -195, 0.5, -265)
 main.BackgroundColor3 = PANEL
 main.BorderSizePixel = 0
 main.ClipsDescendants = true
+main.ZIndex = 2
 main.Parent = gui
 
 local mainCorner = Instance.new("UICorner")
@@ -123,10 +122,8 @@ shadow.SliceCenter = Rect.new(49, 49, 450, 450)
 shadow.ZIndex = 0
 shadow.Parent = main
 
-main.ZIndex = 2
-
 --==================================================
--- TOP HEADER
+-- HEADER
 --==================================================
 
 local header = Instance.new("Frame")
@@ -152,7 +149,7 @@ local logo = Instance.new("TextLabel")
 logo.Position = UDim2.new(0, 20, 0, 13)
 logo.Size = UDim2.new(0, 200, 0, 30)
 logo.BackgroundTransparency = 1
-logo.Text = "AK4J4Y"
+logo.Text = "sakura.gg"
 logo.TextColor3 = WHITE
 logo.TextSize = 25
 logo.Font = Enum.Font.GothamBlack
@@ -161,7 +158,7 @@ logo.ZIndex = 5
 logo.Parent = header
 
 local logoAccent = Instance.new("TextLabel")
-logoAccent.Position = UDim2.new(0, 113, 0, 13)
+logoAccent.Position = UDim2.new(0, 150, 0, 13)
 logoAccent.Size = UDim2.new(0, 80, 0, 30)
 logoAccent.BackgroundTransparency = 1
 logoAccent.Text = "BY JAYCO"
@@ -174,7 +171,7 @@ logoAccent.Parent = header
 
 local version = Instance.new("TextLabel")
 version.Position = UDim2.new(0, 21, 0, 43)
-version.Size = UDim2.new(0, 200, 0, 18)
+version.Size = UDim2.new(0, 220, 0, 18)
 version.BackgroundTransparency = 1
 version.Text = "PREMIUM CONTROL PANEL"
 version.TextColor3 = GRAY
@@ -401,9 +398,7 @@ local function createToggle(text, defaultState, callback)
 		TweenService:Create(
 			button,
 			TweenInfo.new(0.15),
-			{
-				BackgroundColor3 = Color3.fromRGB(22, 22, 27)
-			}
+			{BackgroundColor3 = Color3.fromRGB(22, 22, 27)}
 		):Play()
 	end)
 
@@ -411,9 +406,7 @@ local function createToggle(text, defaultState, callback)
 		TweenService:Create(
 			button,
 			TweenInfo.new(0.15),
-			{
-				BackgroundColor3 = DARK
-			}
+			{BackgroundColor3 = DARK}
 		):Play()
 	end)
 
@@ -423,7 +416,6 @@ local function createToggle(text, defaultState, callback)
 	end)
 
 	yPosition += 45
-
 	update()
 
 	return button
@@ -479,9 +471,7 @@ local function createValueBox(
 		TweenService:Create(
 			stroke,
 			TweenInfo.new(0.15),
-			{
-				Color = RED
-			}
+			{Color = RED}
 		):Play()
 	end)
 
@@ -489,18 +479,14 @@ local function createValueBox(
 		TweenService:Create(
 			stroke,
 			TweenInfo.new(0.15),
-			{
-				Color = Color3.fromRGB(38, 38, 44)
-			}
+			{Color = Color3.fromRGB(38, 38, 44)}
 		):Play()
 
 		local value = tonumber(box.Text)
 
 		if value then
 			value = math.clamp(value, minValue, maxValue)
-
 			box.Text = tostring(value)
-
 			callback(value)
 		else
 			box.Text = tostring(defaultValue)
@@ -519,13 +505,11 @@ end
 local fovCircle = Instance.new("Frame")
 fovCircle.Name = "FOVCircle"
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-fovCircle.Size = UDim2.new(
-	0,
+fovCircle.Size = UDim2.fromOffset(
 	fovRadius * 2,
-	0,
 	fovRadius * 2
 )
-fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+fovCircle.Position = UDim2.fromScale(0.5, 0.5)
 fovCircle.BackgroundTransparency = 1
 fovCircle.Visible = false
 fovCircle.ZIndex = 1
@@ -548,10 +532,8 @@ circleStroke.Parent = fovCircle
 createSection("MAIN")
 
 createToggle("FOV Circle", false, function(enabled)
-
 	fovCircleEnabled = enabled
 	fovCircle.Visible = enabled
-
 end)
 
 createSection("LOCK-ON")
@@ -562,9 +544,7 @@ createValueBox(
 	0.01,
 	1,
 	function(value)
-
 		aimSmoothness = value
-
 	end
 )
 
@@ -574,9 +554,7 @@ createValueBox(
 	0,
 	1,
 	function(value)
-
 		prediction = value
-
 	end
 )
 
@@ -586,16 +564,12 @@ createValueBox(
 	25,
 	500,
 	function(value)
-
 		fovRadius = value
 
-		fovCircle.Size = UDim2.new(
-			0,
+		fovCircle.Size = UDim2.fromOffset(
 			fovRadius * 2,
-			0,
 			fovRadius * 2
 		)
-
 	end
 )
 
@@ -625,21 +599,18 @@ local function getAimPart(character)
 		return nil
 	end
 
-	-- R15
 	local upperTorso = character:FindFirstChild("UpperTorso")
 
 	if upperTorso then
 		return upperTorso
 	end
 
-	-- R6
 	local torso = character:FindFirstChild("Torso")
 
 	if torso then
 		return torso
 	end
 
-	-- Fallback
 	return character:FindFirstChild("HumanoidRootPart")
 end
 
@@ -659,13 +630,8 @@ local function hasLineOfSight(targetCharacter, targetPart)
 	local direction = targetPart.Position - origin
 
 	local params = RaycastParams.new()
-
 	params.FilterType = Enum.RaycastFilterType.Exclude
-
-	params.FilterDescendantsInstances = {
-		character
-	}
-
+	params.FilterDescendantsInstances = {character}
 	params.IgnoreWater = true
 
 	local result = workspace:Raycast(
@@ -788,38 +754,36 @@ local function updateStatus()
 end
 
 --==================================================
--- RIGHT MOUSE BUTTON LOCK-ON
+-- RMB LOCK-ON
 --==================================================
 
-UserInputService.InputBegan:Connect(function(input, processed)
+UserInputService.InputBegan:Connect(function(input)
 
-	if processed then
+	if input.UserInputType ~= Enum.UserInputType.MouseButton2 then
 		return
 	end
 
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+	-- Do NOT check gameProcessed here.
+	-- RMB should activate the local lock-on system.
+	rightMouseHeld = true
+	lockOn = true
 
-		rightMouseHeld = true
-		lockOn = true
+	lockedTarget = getNearestPlayer()
 
-		lockedTarget = getNearestPlayer()
-
-		updateStatus()
-
-	end
+	updateStatus()
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 
-	if input.UserInputType == Enum.UserInputType.MouseButton2 then
-
-		rightMouseHeld = false
-		lockOn = false
-		lockedTarget = nil
-
-		updateStatus()
-
+	if input.UserInputType ~= Enum.UserInputType.MouseButton2 then
+		return
 	end
+
+	rightMouseHeld = false
+	lockOn = false
+	lockedTarget = nil
+
+	updateStatus()
 end)
 
 --==================================================
@@ -890,10 +854,9 @@ end
 UserInputService.InputBegan:Connect(function(input)
 
 	if input.KeyCode == Enum.KeyCode.RightAlt then
-
 		setUIVisible(not uiVisible)
-
 	end
+
 end)
 
 --==================================================
@@ -910,11 +873,13 @@ local function smoothLookAt(targetPosition, deltaTime)
 			targetPosition
 		)
 
-	-- Frame-rate independent smoothing.
-	-- Higher smoothness value = faster tracking.
 	local alpha =
 		1 - math.exp(
-			-math.clamp(aimSmoothness, 0.01, 1)
+			-math.clamp(
+				aimSmoothness,
+				0.01,
+				1
+			)
 			* 12
 			* deltaTime
 		)
@@ -938,16 +903,8 @@ local function getPredictedPosition(targetPart)
 
 	local velocity = targetPart.AssemblyLinearVelocity
 
-	-- Basic velocity prediction.
-	local predictedPosition =
-		targetPart.Position
-		+
-		(
-			velocity
-			* prediction
-		)
-
-	return predictedPosition
+	return targetPart.Position
+		+ (velocity * prediction)
 end
 
 --==================================================
@@ -956,40 +913,34 @@ end
 
 RunService.RenderStepped:Connect(function(deltaTime)
 
-	-- Make absolutely sure lock-on only works
-	-- while RMB is physically held.
+	-- RMB is not held.
 	if not rightMouseHeld then
 
 		if lockOn or lockedTarget then
-
 			lockOn = false
 			lockedTarget = nil
-
 			updateStatus()
-
 		end
 
 		return
 	end
 
-	--==================================================
-	-- LOCK-ON
-	--==================================================
-
 	lockOn = true
 
-	-- Acquire a target if we don't have one.
+	-- Acquire target.
 	if not lockedTarget then
 
 		lockedTarget = getNearestPlayer()
-
 		updateStatus()
 
 	end
 
+	if not lockedTarget then
+		return
+	end
+
 	local targetCharacter =
-		lockedTarget
-		and lockedTarget.Character
+		lockedTarget.Character
 
 	local targetHumanoid =
 		targetCharacter
@@ -999,61 +950,66 @@ RunService.RenderStepped:Connect(function(deltaTime)
 		targetCharacter
 		and getAimPart(targetCharacter)
 
-	-- Target is valid.
-	if targetHumanoid
-		and targetHumanoid.Health > 0
-		and aimPart then
+	-- Invalid target.
+	if not targetHumanoid
+		or targetHumanoid.Health <= 0
+		or not aimPart then
 
-		-- Keep checking visibility.
-		if hasLineOfSight(
-			targetCharacter,
-			aimPart
-		) then
-
-			local predictedPosition =
-				getPredictedPosition(aimPart)
-
-			if predictedPosition then
-
-				smoothLookAt(
-					predictedPosition,
-					deltaTime
-				)
-
-			end
-
-		else
-
-			-- If target goes behind an object,
-			-- look for another valid target.
-			lockedTarget =
-				getNearestPlayer()
-
-			updateStatus()
-
-		end
-
-	else
-
-		-- Target died/despawned.
-		lockedTarget =
-			getNearestPlayer()
-
+		lockedTarget = getNearestPlayer()
 		updateStatus()
+
+		return
+	end
+
+	-- Target must remain visible.
+	if not hasLineOfSight(
+		targetCharacter,
+		aimPart
+	) then
+
+		lockedTarget = getNearestPlayer()
+		updateStatus()
+
+		return
+	end
+
+	local predictedPosition =
+		getPredictedPosition(aimPart)
+
+	if predictedPosition then
+
+		smoothLookAt(
+			predictedPosition,
+			deltaTime
+		)
 
 	end
 end)
 
 --==================================================
--- RESPAWN
+-- RESPAWN SUPPORT
 --==================================================
 
 player.CharacterAdded:Connect(function()
 
-	lockedTarget = nil
+	rightMouseHeld = false
 	lockOn = false
+	lockedTarget = nil
 
 	updateStatus()
+
+end)
+
+--==================================================
+-- CAMERA/FOV UPDATE
+--==================================================
+
+RunService.RenderStepped:Connect(function()
+
+	-- Keep the FOV circle centered on the viewport.
+	if fovCircleEnabled then
+		fovCircle.Position = UDim2.fromScale(0.5, 0.5)
+	end
 
 end)
 
