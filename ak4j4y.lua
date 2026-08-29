@@ -1,5 +1,5 @@
 --[[
-    AK4J4Y BY JAYCO
+    SAKURA.gg D/J
 
     FEATURES
     - Premium red/black UI
