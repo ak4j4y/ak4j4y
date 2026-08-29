@@ -1,16 +1,17 @@
 --[[
-    AK4J4Y BY JAYCO
+    sakura.gg
 
     FEATURES
     - Premium red/black UI
     - Right Alt opens/closes UI
-    - Smooth camera lock-on with C
-    - Prediction
+    - Hold Right Mouse Button (MouseButton2) to lock-on
+    - Smooth camera lock-on
+    - Torso / UpperTorso targeting
+    - Velocity-based prediction
     - FOV-based target selection
     - Line-of-sight check
     - Adjustable aim smoothness
     - Adjustable prediction
-    - Noclip
     - FOV Circle
     - Respawn support
 ]]
@@ -27,9 +28,9 @@ local camera = workspace.CurrentCamera
 -- SETTINGS
 --==================================================
 
-local noclip = false
 local fovCircleEnabled = false
 local lockOn = false
+local rightMouseHeld = false
 
 local aimSmoothness = 0.15
 local prediction = 0.12
@@ -67,6 +68,7 @@ end
 
 local function getRoot()
 	local character = getCharacter()
+
 	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
@@ -185,9 +187,9 @@ version.Parent = header
 local keyBadge = Instance.new("TextLabel")
 keyBadge.AnchorPoint = Vector2.new(1, 0)
 keyBadge.Position = UDim2.new(1, -18, 0, 20)
-keyBadge.Size = UDim2.new(0, 72, 0, 27)
+keyBadge.Size = UDim2.new(0, 90, 0, 27)
 keyBadge.BackgroundColor3 = DARK
-keyBadge.Text = "RIGHT ALT"
+keyBadge.Text = "HOLD RMB"
 keyBadge.TextColor3 = RED
 keyBadge.TextSize = 9
 keyBadge.Font = Enum.Font.GothamBold
@@ -431,7 +433,13 @@ end
 -- VALUE BOX
 --==================================================
 
-local function createValueBox(labelText, defaultValue, minValue, maxValue, callback)
+local function createValueBox(
+	labelText,
+	defaultValue,
+	minValue,
+	maxValue,
+	callback
+)
 
 	local label = Instance.new("TextLabel")
 	label.Position = UDim2.new(0, 20, 0, yPosition)
@@ -490,7 +498,9 @@ local function createValueBox(labelText, defaultValue, minValue, maxValue, callb
 
 		if value then
 			value = math.clamp(value, minValue, maxValue)
+
 			box.Text = tostring(value)
+
 			callback(value)
 		else
 			box.Text = tostring(defaultValue)
@@ -509,7 +519,12 @@ end
 local fovCircle = Instance.new("Frame")
 fovCircle.Name = "FOVCircle"
 fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-fovCircle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+fovCircle.Size = UDim2.new(
+	0,
+	fovRadius * 2,
+	0,
+	fovRadius * 2
+)
 fovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 fovCircle.BackgroundTransparency = 1
 fovCircle.Visible = false
@@ -532,51 +547,57 @@ circleStroke.Parent = fovCircle
 
 createSection("MAIN")
 
-createToggle("Noclip", false, function(enabled)
-
-	noclip = enabled
-
-	if not enabled then
-
-		local character = getCharacter()
-
-		if character then
-			for _, object in ipairs(character:GetDescendants()) do
-				if object:IsA("BasePart") then
-					object.CanCollide = true
-				end
-			end
-		end
-	end
-end)
-
 createToggle("FOV Circle", false, function(enabled)
 
 	fovCircleEnabled = enabled
 	fovCircle.Visible = enabled
+
 end)
 
 createSection("LOCK-ON")
 
-createValueBox("Smoothness", aimSmoothness, 0.01, 1, function(value)
-	aimSmoothness = value
-end)
+createValueBox(
+	"Smoothness",
+	aimSmoothness,
+	0.01,
+	1,
+	function(value)
 
-createValueBox("Prediction", prediction, 0, 1, function(value)
-	prediction = value
-end)
+		aimSmoothness = value
 
-createValueBox("FOV Radius", fovRadius, 25, 500, function(value)
+	end
+)
 
-	fovRadius = value
+createValueBox(
+	"Prediction",
+	prediction,
+	0,
+	1,
+	function(value)
 
-	fovCircle.Size = UDim2.new(
-		0,
-		fovRadius * 2,
-		0,
-		fovRadius * 2
-	)
-end)
+		prediction = value
+
+	end
+)
+
+createValueBox(
+	"FOV Radius",
+	fovRadius,
+	25,
+	500,
+	function(value)
+
+		fovRadius = value
+
+		fovCircle.Size = UDim2.new(
+			0,
+			fovRadius * 2,
+			0,
+			fovRadius * 2
+		)
+
+	end
+)
 
 --==================================================
 -- TARGET LABEL
@@ -595,50 +616,69 @@ targetLabel.ZIndex = 5
 targetLabel.Parent = content
 
 --==================================================
+-- TARGET PART
+--==================================================
+
+local function getAimPart(character)
+
+	if not character then
+		return nil
+	end
+
+	-- R15
+	local upperTorso = character:FindFirstChild("UpperTorso")
+
+	if upperTorso then
+		return upperTorso
+	end
+
+	-- R6
+	local torso = character:FindFirstChild("Torso")
+
+	if torso then
+		return torso
+	end
+
+	-- Fallback
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+--==================================================
 -- LINE OF SIGHT
 --==================================================
 
-local function hasLineOfSight(targetCharacter)
+local function hasLineOfSight(targetCharacter, targetPart)
 
-	local root = getRoot()
+	local character = getCharacter()
 
-	if not root or not targetCharacter then
-		return false
-	end
-
-	local targetRoot =
-		targetCharacter:FindFirstChild("HumanoidRootPart")
-
-	if not targetRoot then
+	if not character or not targetCharacter or not targetPart then
 		return false
 	end
 
 	local origin = camera.CFrame.Position
-	local direction = targetRoot.Position - origin
+	local direction = targetPart.Position - origin
 
 	local params = RaycastParams.new()
 
-	params.FilterType =
-		Enum.RaycastFilterType.Exclude
+	params.FilterType = Enum.RaycastFilterType.Exclude
 
 	params.FilterDescendantsInstances = {
-		getCharacter()
+		character
 	}
 
-	local result =
-		workspace:Raycast(
-			origin,
-			direction,
-			params
-		)
+	params.IgnoreWater = true
+
+	local result = workspace:Raycast(
+		origin,
+		direction,
+		params
+	)
 
 	if not result then
 		return true
 	end
 
-	return result.Instance:IsDescendantOf(
-		targetCharacter
-	)
+	return result.Instance:IsDescendantOf(targetCharacter)
 end
 
 --==================================================
@@ -653,75 +693,58 @@ local function getNearestPlayer()
 		return nil
 	end
 
-	local root =
-		character:FindFirstChild(
-			"HumanoidRootPart"
-		)
-
-	if not root then
-		return nil
-	end
-
 	local nearest = nil
 	local nearestDistance = math.huge
 
+	local viewportSize = camera.ViewportSize
+
 	local screenCenter = Vector2.new(
-		camera.ViewportSize.X / 2,
-		camera.ViewportSize.Y / 2
+		viewportSize.X / 2,
+		viewportSize.Y / 2
 	)
 
-	for _, otherPlayer in ipairs(
-		Players:GetPlayers()
-	) do
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
 
 		if otherPlayer ~= player then
 
-			local otherCharacter =
-				otherPlayer.Character
-
-			local otherRoot =
-				otherCharacter and
-				otherCharacter:FindFirstChild(
-					"HumanoidRootPart"
-				)
+			local otherCharacter = otherPlayer.Character
 
 			local humanoid =
-				otherCharacter and
-				otherCharacter:FindFirstChildOfClass(
-					"Humanoid"
-				)
+				otherCharacter
+				and otherCharacter:FindFirstChildOfClass("Humanoid")
 
-			if otherRoot
-				and humanoid
-				and humanoid.Health > 0 then
+			if humanoid and humanoid.Health > 0 then
 
-				local screenPosition, visible =
-					camera:WorldToViewportPoint(
-						otherRoot.Position
-					)
+				local aimPart = getAimPart(otherCharacter)
 
-				if visible and screenPosition.Z > 0 then
+				if aimPart then
 
-					local screenDistance =
-						(
-							Vector2.new(
-								screenPosition.X,
-								screenPosition.Y
-							)
-							- screenCenter
-						).Magnitude
+					local screenPosition, visible =
+						camera:WorldToViewportPoint(
+							aimPart.Position
+						)
 
-					if screenDistance <= fovRadius
-						and screenDistance < nearestDistance
-						and hasLineOfSight(
-							otherCharacter
-						) then
+					if visible and screenPosition.Z > 0 then
 
-						nearestDistance =
-							screenDistance
+						local screenPoint = Vector2.new(
+							screenPosition.X,
+							screenPosition.Y
+						)
 
-						nearest =
-							otherPlayer
+						local screenDistance =
+							(screenPoint - screenCenter).Magnitude
+
+						if screenDistance <= fovRadius
+							and screenDistance < nearestDistance
+							and hasLineOfSight(
+								otherCharacter,
+								aimPart
+							) then
+
+							nearestDistance = screenDistance
+							nearest = otherPlayer
+
+						end
 					end
 				end
 			end
@@ -740,19 +763,15 @@ local function updateStatus()
 	if lockOn and lockedTarget then
 
 		status.Text =
-			"LOCK-ON  •  " ..
-			string.upper(
-				lockedTarget.Name
-			)
+			"LOCK-ON  •  "
+			.. string.upper(lockedTarget.Name)
 
 		status.TextColor3 = RED
 		statusDot.BackgroundColor3 = RED
 
 		targetLabel.Text =
-			"TARGET  /  " ..
-			string.upper(
-				lockedTarget.Name
-			)
+			"TARGET  /  "
+			.. string.upper(lockedTarget.Name)
 
 		targetLabel.TextColor3 = RED
 
@@ -764,11 +783,12 @@ local function updateStatus()
 
 		targetLabel.Text = "TARGET  /  NONE"
 		targetLabel.TextColor3 = GRAY
+
 	end
 end
 
 --==================================================
--- C LOCK-ON
+-- RIGHT MOUSE BUTTON LOCK-ON
 --==================================================
 
 UserInputService.InputBegan:Connect(function(input, processed)
@@ -777,17 +797,28 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		return
 	end
 
-	if input.KeyCode == Enum.KeyCode.C then
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
 
-		lockOn = not lockOn
+		rightMouseHeld = true
+		lockOn = true
 
-		if lockOn then
-			lockedTarget = getNearestPlayer()
-		else
-			lockedTarget = nil
-		end
+		lockedTarget = getNearestPlayer()
 
 		updateStatus()
+
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+
+		rightMouseHeld = false
+		lockOn = false
+		lockedTarget = nil
+
+		updateStatus()
+
 	end
 end)
 
@@ -803,13 +834,12 @@ local function setUIVisible(visible)
 
 		main.Visible = true
 
-		main.Size =
-			UDim2.new(
-				0,
-				370,
-				0,
-				510
-			)
+		main.Size = UDim2.new(
+			0,
+			370,
+			0,
+			510
+		)
 
 		TweenService:Create(
 			main,
@@ -859,10 +889,10 @@ end
 
 UserInputService.InputBegan:Connect(function(input)
 
-	if input.KeyCode ==
-		Enum.KeyCode.RightAlt then
+	if input.KeyCode == Enum.KeyCode.RightAlt then
 
 		setUIVisible(not uiVisible)
+
 	end
 end)
 
@@ -870,10 +900,9 @@ end)
 -- SMOOTH CAMERA
 --==================================================
 
-local function smoothLookAt(targetPosition)
+local function smoothLookAt(targetPosition, deltaTime)
 
-	local currentPosition =
-		camera.CFrame.Position
+	local currentPosition = camera.CFrame.Position
 
 	local desiredCFrame =
 		CFrame.lookAt(
@@ -881,17 +910,13 @@ local function smoothLookAt(targetPosition)
 			targetPosition
 		)
 
+	-- Frame-rate independent smoothing.
+	-- Higher smoothness value = faster tracking.
 	local alpha =
-		math.clamp(
-			aimSmoothness,
-			0.01,
-			1
-		)
-
-	alpha =
-		1 - math.pow(
-			1 - alpha,
-			2
+		1 - math.exp(
+			-math.clamp(aimSmoothness, 0.01, 1)
+			* 12
+			* deltaTime
 		)
 
 	camera.CFrame =
@@ -902,93 +927,120 @@ local function smoothLookAt(targetPosition)
 end
 
 --==================================================
+-- PREDICTION
+--==================================================
+
+local function getPredictedPosition(targetPart)
+
+	if not targetPart then
+		return nil
+	end
+
+	local velocity = targetPart.AssemblyLinearVelocity
+
+	-- Basic velocity prediction.
+	local predictedPosition =
+		targetPart.Position
+		+
+		(
+			velocity
+			* prediction
+		)
+
+	return predictedPosition
+end
+
+--==================================================
 -- MAIN LOOP
 --==================================================
 
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(deltaTime)
 
-	-- Noclip
-	if noclip then
+	-- Make absolutely sure lock-on only works
+	-- while RMB is physically held.
+	if not rightMouseHeld then
 
-		local character =
-			getCharacter()
+		if lockOn or lockedTarget then
 
-		if character then
-
-			for _, object in ipairs(
-				character:GetDescendants()
-			) do
-
-				if object:IsA("BasePart") then
-					object.CanCollide = false
-				end
-			end
-		end
-	end
-
-	-- Lock-on
-	if lockOn then
-
-		if not lockedTarget then
-
-			lockedTarget =
-				getNearestPlayer()
+			lockOn = false
+			lockedTarget = nil
 
 			updateStatus()
+
 		end
 
-		local targetCharacter =
-			lockedTarget and
-			lockedTarget.Character
+		return
+	end
 
-		local targetRoot =
-			targetCharacter and
-			targetCharacter:FindFirstChild(
-				"HumanoidRootPart"
-			)
+	--==================================================
+	-- LOCK-ON
+	--==================================================
 
-		local targetHumanoid =
-			targetCharacter and
-			targetCharacter:FindFirstChildOfClass(
-				"Humanoid"
-			)
+	lockOn = true
 
-		if targetRoot
-			and targetHumanoid
-			and targetHumanoid.Health > 0 then
+	-- Acquire a target if we don't have one.
+	if not lockedTarget then
 
-			if hasLineOfSight(
-				targetCharacter
-			) then
+		lockedTarget = getNearestPlayer()
 
-				local predictedPosition =
-					targetRoot.Position
-					+
-					(
-						targetRoot.AssemblyLinearVelocity
-						*
-						prediction
-					)
+		updateStatus()
+
+	end
+
+	local targetCharacter =
+		lockedTarget
+		and lockedTarget.Character
+
+	local targetHumanoid =
+		targetCharacter
+		and targetCharacter:FindFirstChildOfClass("Humanoid")
+
+	local aimPart =
+		targetCharacter
+		and getAimPart(targetCharacter)
+
+	-- Target is valid.
+	if targetHumanoid
+		and targetHumanoid.Health > 0
+		and aimPart then
+
+		-- Keep checking visibility.
+		if hasLineOfSight(
+			targetCharacter,
+			aimPart
+		) then
+
+			local predictedPosition =
+				getPredictedPosition(aimPart)
+
+			if predictedPosition then
 
 				smoothLookAt(
-					predictedPosition
+					predictedPosition,
+					deltaTime
 				)
 
-			else
-
-				lockedTarget =
-					getNearestPlayer()
-
-				updateStatus()
 			end
 
 		else
 
+			-- If target goes behind an object,
+			-- look for another valid target.
 			lockedTarget =
 				getNearestPlayer()
 
 			updateStatus()
+
 		end
+
+	else
+
+		-- Target died/despawned.
+		lockedTarget =
+			getNearestPlayer()
+
+		updateStatus()
+
 	end
 end)
 
@@ -996,13 +1048,17 @@ end)
 -- RESPAWN
 --==================================================
 
-player.CharacterAdded:Connect(function(character)
+player.CharacterAdded:Connect(function()
 
 	lockedTarget = nil
 	lockOn = false
 
 	updateStatus()
+
 end)
 
--- Initial status
+--==================================================
+-- INITIAL STATUS
+--==================================================
+
 updateStatus()
