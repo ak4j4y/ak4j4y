@@ -1,5 +1,5 @@
 --[[
-     sakura.gg
+    AK4J4Y BY JAYCO
 
     FEATURES
     - Premium red/black UI
