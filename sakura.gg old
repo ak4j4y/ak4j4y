@@ -1,0 +1,2041 @@
+--[[
+    sakura.gg
+    Premium UI / Aim / ESP / Teleport
+    Designed for use as a LocalScript in your own Roblox experience.
+
+    FEATURES
+    - Dark / red premium UI
+    - Main dashboard
+    - Username + profile picture
+    - PAID / LIFETIME status
+    - Aimbot toggle
+    - RMB hold activation
+    - Closest target selection
+    - FOV toggle
+    - Adjustable FOV radius
+    - Adjustable smoothness
+    - Adjustable prediction
+    - Username ESP
+    - Skeleton ESP
+    - Player teleport
+    - R15 + R6 support
+    - Respawn support
+]]
+
+--==================================================
+-- SERVICES
+--==================================================
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local camera = workspace.CurrentCamera
+
+--==================================================
+-- SETTINGS
+--==================================================
+
+local Settings = {
+
+	Aimbot = false,
+	AimHeld = false,
+
+	FOVEnabled = false,
+	FOVRadius = 140,
+
+	Smoothness = 0.18,
+	Prediction = 0.12,
+
+	UsernameESP = false,
+	SkeletonESP = false,
+
+}
+
+local currentTarget = nil
+
+--==================================================
+-- COLORS
+--==================================================
+
+local COLORS = {
+
+	Background = Color3.fromRGB(6, 7, 11),
+	Panel = Color3.fromRGB(10, 12, 18),
+	Panel2 = Color3.fromRGB(13, 15, 23),
+
+	Card = Color3.fromRGB(16, 18, 27),
+	CardHover = Color3.fromRGB(21, 23, 33),
+
+	Red = Color3.fromRGB(255, 35, 55),
+	RedBright = Color3.fromRGB(255, 65, 82),
+	RedDark = Color3.fromRGB(105, 16, 27),
+
+	White = Color3.fromRGB(245, 246, 250),
+	Gray = Color3.fromRGB(145, 149, 160),
+	Muted = Color3.fromRGB(88, 92, 103),
+
+	Stroke = Color3.fromRGB(34, 37, 48),
+
+	Green = Color3.fromRGB(50, 220, 130),
+
+}
+
+--==================================================
+-- CHARACTER HELPERS
+--==================================================
+
+local function getCharacter()
+	return player.Character
+end
+
+local function getRoot(character)
+	character = character or getCharacter()
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getHumanoid(character)
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChildOfClass("Humanoid")
+end
+
+--==================================================
+-- TARGET PART
+--==================================================
+
+local function getAimPart(character)
+
+	if not character then
+		return nil
+	end
+
+	return character:FindFirstChild("Head")
+		or character:FindFirstChild("UpperTorso")
+		or character:FindFirstChild("Torso")
+		or character:FindFirstChild("HumanoidRootPart")
+
+end
+
+--==================================================
+-- GUI ROOT
+--==================================================
+
+local oldGui = playerGui:FindFirstChild("sakura.gg")
+
+if oldGui then
+	oldGui:Destroy()
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "sakura.gg"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.Parent = playerGui
+
+--==================================================
+-- SHADOW
+--==================================================
+
+local shadow = Instance.new("Frame")
+shadow.Name = "Shadow"
+shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+shadow.Position = UDim2.fromScale(0.5, 0.5)
+shadow.Size = UDim2.fromOffset(850, 600)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.45
+shadow.BorderSizePixel = 0
+shadow.Parent = gui
+
+local shadowCorner = Instance.new("UICorner")
+shadowCorner.CornerRadius = UDim.new(0, 20)
+shadowCorner.Parent = shadow
+
+--==================================================
+-- MAIN WINDOW
+--==================================================
+
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.Position = UDim2.fromScale(0.5, 0.5)
+main.Size = UDim2.fromOffset(820, 570)
+main.BackgroundColor3 = COLORS.Background
+main.BorderSizePixel = 0
+main.Parent = gui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 18)
+mainCorner.Parent = main
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Color = Color3.fromRGB(44, 47, 60)
+mainStroke.Thickness = 1
+mainStroke.Parent = main
+
+--==================================================
+-- TOP RED LINE
+--==================================================
+
+local topLine = Instance.new("Frame")
+topLine.Position = UDim2.new(0, 0, 0, 0)
+topLine.Size = UDim2.new(1, 0, 0, 2)
+topLine.BackgroundColor3 = COLORS.Red
+topLine.BorderSizePixel = 0
+topLine.Parent = main
+
+--==================================================
+-- SIDEBAR
+--==================================================
+
+local sidebar = Instance.new("Frame")
+sidebar.Position = UDim2.new(0, 0, 0, 2)
+sidebar.Size = UDim2.new(0, 190, 1, -2)
+sidebar.BackgroundColor3 = COLORS.Panel
+sidebar.BorderSizePixel = 0
+sidebar.Parent = main
+
+local sidebarCorner = Instance.new("UICorner")
+sidebarCorner.CornerRadius = UDim.new(0, 18)
+sidebarCorner.Parent = sidebar
+
+--==================================================
+-- LOGO
+--==================================================
+
+local logo = Instance.new("TextLabel")
+logo.Position = UDim2.new(0, 24, 0, 24)
+logo.Size = UDim2.new(1, -48, 0, 32)
+logo.BackgroundTransparency = 1
+logo.Text = "sakura.gg"
+logo.TextColor3 = COLORS.White
+logo.Font = Enum.Font.GothamBlack
+logo.TextSize = 23
+logo.TextXAlignment = Enum.TextXAlignment.Left
+logo.Parent = sidebar
+
+local logoAccent = Instance.new("TextLabel")
+logoAccent.Position = UDim2.new(0, 25, 0, 55)
+logoAccent.Size = UDim2.new(1, -50, 0, 16)
+logoAccent.BackgroundTransparency = 1
+logoAccent.Text = "PREMIUM CONTROL"
+logoAccent.TextColor3 = COLORS.Red
+logoAccent.Font = Enum.Font.GothamBold
+logoAccent.TextSize = 8
+logoAccent.TextXAlignment = Enum.TextXAlignment.Left
+logoAccent.Parent = sidebar
+
+--==================================================
+-- SIDEBAR DIVIDER
+--==================================================
+
+local divider = Instance.new("Frame")
+divider.Position = UDim2.new(0, 24, 0, 84)
+divider.Size = UDim2.new(1, -48, 0, 1)
+divider.BackgroundColor3 = COLORS.Stroke
+divider.BorderSizePixel = 0
+divider.Parent = sidebar
+
+--==================================================
+-- CONTENT AREA
+--==================================================
+
+local pageHolder = Instance.new("Frame")
+pageHolder.Position = UDim2.new(0, 190, 0, 2)
+pageHolder.Size = UDim2.new(1, -190, 1, -2)
+pageHolder.BackgroundTransparency = 1
+pageHolder.Parent = main
+
+--==================================================
+-- PAGE SYSTEM
+--==================================================
+
+local pages = {}
+local navButtons = {}
+
+local function createPage(name)
+
+	local page = Instance.new("ScrollingFrame")
+
+	page.Name = name
+	page.Position = UDim2.fromScale(0, 0)
+	page.Size = UDim2.fromScale(1, 1)
+
+	page.BackgroundTransparency = 1
+	page.BorderSizePixel = 0
+
+	page.ScrollBarThickness = 3
+	page.ScrollBarImageColor3 = COLORS.Red
+
+	page.CanvasSize = UDim2.new(0, 0, 0, 0)
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+	page.Visible = false
+	page.Parent = pageHolder
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 25)
+	padding.PaddingBottom = UDim.new(0, 25)
+	padding.PaddingLeft = UDim.new(0, 28)
+	padding.PaddingRight = UDim.new(0, 28)
+	padding.Parent = page
+
+	pages[name] = page
+
+	return page
+end
+
+local mainPage = createPage("MAIN")
+local aimPage = createPage("AIMBOT")
+local espPage = createPage("ESP")
+local teleportPage = createPage("TELEPORT")
+
+--==================================================
+-- PAGE TITLE
+--==================================================
+
+local function createPageTitle(page, title, description)
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Size = UDim2.new(1, 0, 0, 30)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Text = title
+	titleLabel.TextColor3 = COLORS.White
+	titleLabel.Font = Enum.Font.GothamBlack
+	titleLabel.TextSize = 22
+	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.Parent = page
+
+	local desc = Instance.new("TextLabel")
+	desc.Position = UDim2.new(0, 0, 0, 32)
+	desc.Size = UDim2.new(1, 0, 0, 25)
+	desc.BackgroundTransparency = 1
+	desc.Text = description
+	desc.TextColor3 = COLORS.Gray
+	desc.Font = Enum.Font.Gotham
+	desc.TextSize = 10
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.Parent = page
+
+	return 65
+end
+
+--==================================================
+-- NAVIGATION
+--==================================================
+
+local function showPage(name)
+
+	for pageName, page in pairs(pages) do
+		page.Visible = pageName == name
+	end
+
+	for buttonName, data in pairs(navButtons) do
+
+		if buttonName == name then
+
+			data.BackgroundColor3 = COLORS.RedDark
+			data.Label.TextColor3 = COLORS.White
+			data.Icon.TextColor3 = COLORS.RedBright
+
+		else
+
+			data.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			data.Label.TextColor3 = COLORS.Gray
+			data.Icon.TextColor3 = COLORS.Muted
+
+		end
+	end
+
+end
+
+local function createNavButton(text, icon, y)
+
+	local button = Instance.new("TextButton")
+	button.Position = UDim2.new(0, 16, 0, y)
+	button.Size = UDim2.new(1, -32, 0, 42)
+	button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	button.BackgroundTransparency = 1
+	button.BorderSizePixel = 0
+	button.Text = ""
+	button.AutoButtonColor = false
+	button.Parent = sidebar
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 9)
+	corner.Parent = button
+
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Position = UDim2.new(0, 13, 0, 0)
+	iconLabel.Size = UDim2.new(0, 25, 1, 0)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Text = icon
+	iconLabel.TextColor3 = COLORS.Muted
+	iconLabel.Font = Enum.Font.GothamBold
+	iconLabel.TextSize = 13
+	iconLabel.Parent = button
+
+	local label = Instance.new("TextLabel")
+	label.Position = UDim2.new(0, 44, 0, 0)
+	label.Size = UDim2.new(1, -50, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = COLORS.Gray
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = button
+
+	navButtons[text] = {
+		Button = button,
+		Label = label,
+		Icon = iconLabel,
+	}
+
+	button.MouseEnter:Connect(function()
+
+		if pages[text].Visible == false then
+
+			TweenService:Create(
+				button,
+				TweenInfo.new(0.12),
+				{
+					BackgroundColor3 = COLORS.Card
+				}
+			):Play()
+
+		end
+
+	end)
+
+	button.MouseLeave:Connect(function()
+
+		if pages[text].Visible == false then
+
+			TweenService:Create(
+				button,
+				TweenInfo.new(0.12),
+				{
+					BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+				}
+			):Play()
+
+		end
+
+	end)
+
+	button.MouseButton1Click:Connect(function()
+		showPage(text)
+	end)
+
+end
+
+createNavButton("MAIN", "⌂", 110)
+createNavButton("AIMBOT", "◎", 158)
+createNavButton("ESP", "◉", 206)
+createNavButton("TELEPORT", "↗", 254)
+
+--==================================================
+-- SIDEBAR STATUS
+--==================================================
+
+local sidebarStatus = Instance.new("Frame")
+sidebarStatus.AnchorPoint = Vector2.new(0, 1)
+sidebarStatus.Position = UDim2.new(0, 16, 1, -18)
+sidebarStatus.Size = UDim2.new(1, -32, 0, 58)
+sidebarStatus.BackgroundColor3 = COLORS.Card
+sidebarStatus.BorderSizePixel = 0
+sidebarStatus.Parent = sidebar
+
+local sidebarStatusCorner = Instance.new("UICorner")
+sidebarStatusCorner.CornerRadius = UDim.new(0, 10)
+sidebarStatusCorner.Parent = sidebarStatus
+
+local onlineDot = Instance.new("Frame")
+onlineDot.Position = UDim2.new(0, 12, 0, 14)
+onlineDot.Size = UDim2.fromOffset(7, 7)
+onlineDot.BackgroundColor3 = COLORS.Green
+onlineDot.BorderSizePixel = 0
+onlineDot.Parent = sidebarStatus
+
+local onlineCorner = Instance.new("UICorner")
+onlineCorner.CornerRadius = UDim.new(1, 0)
+onlineCorner.Parent = onlineDot
+
+local onlineText = Instance.new("TextLabel")
+onlineText.Position = UDim2.new(0, 27, 0, 6)
+onlineText.Size = UDim2.new(1, -35, 0, 18)
+onlineText.BackgroundTransparency = 1
+onlineText.Text = "SYSTEM ONLINE"
+onlineText.TextColor3 = COLORS.White
+onlineText.Font = Enum.Font.GothamBold
+onlineText.TextSize = 8
+onlineText.TextXAlignment = Enum.TextXAlignment.Left
+onlineText.Parent = sidebarStatus
+
+local buildText = Instance.new("TextLabel")
+buildText.Position = UDim2.new(0, 27, 0, 25)
+buildText.Size = UDim2.new(1, -35, 0, 18)
+buildText.BackgroundTransparency = 1
+buildText.Text = "v2.0  •  PREMIUM"
+buildText.TextColor3 = COLORS.Muted
+buildText.Font = Enum.Font.Gotham
+buildText.TextSize = 8
+buildText.TextXAlignment = Enum.TextXAlignment.Left
+buildText.Parent = sidebarStatus
+
+--==================================================
+-- CARD CREATOR
+--==================================================
+
+local function createCard(page, y, height)
+
+	local card = Instance.new("Frame")
+	card.Position = UDim2.new(0, 0, 0, y)
+	card.Size = UDim2.new(1, 0, 0, height)
+	card.BackgroundColor3 = COLORS.Card
+	card.BorderSizePixel = 0
+	card.Parent = page
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = card
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = COLORS.Stroke
+	stroke.Thickness = 1
+	stroke.Parent = card
+
+	return card
+end
+
+--==================================================
+-- TOGGLE CREATOR
+--==================================================
+
+local function createToggle(parent, text, description, default, callback, y)
+
+	local button = Instance.new("TextButton")
+	button.Position = UDim2.new(0, 0, 0, y)
+	button.Size = UDim2.new(1, 0, 0, 54)
+	button.BackgroundColor3 = COLORS.Card
+	button.BorderSizePixel = 0
+	button.AutoButtonColor = false
+	button.Text = ""
+	button.Parent = parent
+
+	local label = Instance.new("TextLabel")
+	label.Position = UDim2.new(0, 16, 0, 7)
+	label.Size = UDim2.new(1, -75, 0, 18)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = COLORS.White
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = button
+
+	local desc = Instance.new("TextLabel")
+	desc.Position = UDim2.new(0, 16, 0, 26)
+	desc.Size = UDim2.new(1, -75, 0, 16)
+	desc.BackgroundTransparency = 1
+	desc.Text = description
+	desc.TextColor3 = COLORS.Muted
+	desc.Font = Enum.Font.Gotham
+	desc.TextSize = 8
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.Parent = button
+
+	local switch = Instance.new("Frame")
+	switch.AnchorPoint = Vector2.new(1, 0.5)
+	switch.Position = UDim2.new(1, -16, 0.5, 0)
+	switch.Size = UDim2.fromOffset(38, 20)
+	switch.BackgroundColor3 = Color3.fromRGB(29, 31, 40)
+	switch.BorderSizePixel = 0
+	switch.Parent = button
+
+	local switchCorner = Instance.new("UICorner")
+	switchCorner.CornerRadius = UDim.new(1, 0)
+	switchCorner.Parent = switch
+
+	local dot = Instance.new("Frame")
+	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+	dot.Position = UDim2.new(0, 10, 0.5, 0)
+	dot.Size = UDim2.fromOffset(12, 12)
+	dot.BackgroundColor3 = COLORS.Muted
+	dot.BorderSizePixel = 0
+	dot.Parent = switch
+
+	local dotCorner = Instance.new("UICorner")
+	dotCorner.CornerRadius = UDim.new(1, 0)
+	dotCorner.Parent = dot
+
+	local state = default
+
+	local function update()
+
+		if state then
+
+			TweenService:Create(
+				switch,
+				TweenInfo.new(0.15),
+				{
+					BackgroundColor3 = COLORS.RedDark
+				}
+			):Play()
+
+			TweenService:Create(
+				dot,
+				TweenInfo.new(0.15),
+				{
+					Position = UDim2.new(1, -10, 0.5, 0),
+					BackgroundColor3 = COLORS.RedBright
+				}
+			):Play()
+
+		else
+
+			TweenService:Create(
+				switch,
+				TweenInfo.new(0.15),
+				{
+					BackgroundColor3 = Color3.fromRGB(29, 31, 40)
+				}
+			):Play()
+
+			TweenService:Create(
+				dot,
+				TweenInfo.new(0.15),
+				{
+					Position = UDim2.new(0, 10, 0.5, 0),
+					BackgroundColor3 = COLORS.Muted
+				}
+			):Play()
+
+		end
+
+		callback(state)
+
+	end
+
+	button.MouseEnter:Connect(function()
+
+		TweenService:Create(
+			button,
+			TweenInfo.new(0.12),
+			{
+				BackgroundColor3 = COLORS.CardHover
+			}
+		):Play()
+
+	end)
+
+	button.MouseLeave:Connect(function()
+
+		TweenService:Create(
+			button,
+			TweenInfo.new(0.12),
+			{
+				BackgroundColor3 = COLORS.Card
+			}
+		):Play()
+
+	end)
+
+	button.MouseButton1Click:Connect(function()
+
+		state = not state
+		update()
+
+	end)
+
+	update()
+
+	return button
+end
+
+--==================================================
+-- INPUT / VALUE CONTROL
+--==================================================
+
+local function createInput(parent, text, description, value, minValue, maxValue, callback, y)
+
+	local holder = Instance.new("Frame")
+	holder.Position = UDim2.new(0, 0, 0, y)
+	holder.Size = UDim2.new(1, 0, 0, 58)
+	holder.BackgroundColor3 = COLORS.Card
+	holder.BorderSizePixel = 0
+	holder.Parent = parent
+
+	local label = Instance.new("TextLabel")
+	label.Position = UDim2.new(0, 16, 0, 8)
+	label.Size = UDim2.new(0, 145, 0, 18)
+	label.BackgroundTransparency = 1
+	label.Text = text
+	label.TextColor3 = COLORS.White
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = holder
+
+	local desc = Instance.new("TextLabel")
+	desc.Position = UDim2.new(0, 16, 0, 28)
+	desc.Size = UDim2.new(0, 180, 0, 16)
+	desc.BackgroundTransparency = 1
+	desc.Text = description
+	desc.TextColor3 = COLORS.Muted
+	desc.Font = Enum.Font.Gotham
+	desc.TextSize = 8
+	desc.TextXAlignment = Enum.TextXAlignment.Left
+	desc.Parent = holder
+
+	local box = Instance.new("TextBox")
+	box.AnchorPoint = Vector2.new(1, 0.5)
+	box.Position = UDim2.new(1, -16, 0.5, 0)
+	box.Size = UDim2.fromOffset(90, 31)
+	box.BackgroundColor3 = COLORS.Panel2
+	box.BorderSizePixel = 0
+	box.Text = tostring(value)
+	box.TextColor3 = COLORS.RedBright
+	box.Font = Enum.Font.GothamBold
+	box.TextSize = 10
+	box.ClearTextOnFocus = false
+	box.Parent = holder
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = box
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = COLORS.Stroke
+	stroke.Thickness = 1
+	stroke.Parent = box
+
+	box.Focused:Connect(function()
+
+		TweenService:Create(
+			stroke,
+			TweenInfo.new(0.15),
+			{
+				Color = COLORS.Red
+			}
+		):Play()
+
+	end)
+
+	box.FocusLost:Connect(function()
+
+		TweenService:Create(
+			stroke,
+			TweenInfo.new(0.15),
+			{
+				Color = COLORS.Stroke
+			}
+		):Play()
+
+		local number = tonumber(box.Text)
+
+		if number then
+
+			number = math.clamp(number, minValue, maxValue)
+
+			box.Text = tostring(number)
+
+			callback(number)
+
+		else
+
+			box.Text = tostring(value)
+
+		end
+
+	end)
+
+	return holder
+end
+
+--==================================================
+-- MAIN PAGE
+--==================================================
+
+createPageTitle(
+	mainPage,
+	"Welcome back.",
+	"Your premium control center."
+)
+
+-- Profile card
+
+local profileCard = createCard(mainPage, 75, 120)
+
+local avatar = Instance.new("ImageLabel")
+avatar.Position = UDim2.new(0, 18, 0, 18)
+avatar.Size = UDim2.fromOffset(82, 82)
+avatar.BackgroundColor3 = COLORS.Panel2
+avatar.BorderSizePixel = 0
+avatar.Image = ""
+
+local avatarCorner = Instance.new("UICorner")
+avatarCorner.CornerRadius = UDim.new(0, 12)
+avatarCorner.Parent = avatar
+
+avatar.Parent = profileCard
+
+task.spawn(function()
+
+	local success, image = pcall(function()
+
+		return Players:GetUserThumbnailAsync(
+			player.UserId,
+			Enum.ThumbnailType.HeadShot,
+			Enum.ThumbnailSize.Size150x150
+		)
+
+	end)
+
+	if success then
+		avatar.Image = image
+	end
+
+end)
+
+local username = Instance.new("TextLabel")
+username.Position = UDim2.new(0, 120, 0, 22)
+username.Size = UDim2.new(1, -135, 0, 24)
+username.BackgroundTransparency = 1
+username.Text = player.Name
+username.TextColor3 = COLORS.White
+username.Font = Enum.Font.GothamBlack
+username.TextSize = 17
+username.TextXAlignment = Enum.TextXAlignment.Left
+username.Parent = profileCard
+
+local displayName = Instance.new("TextLabel")
+displayName.Position = UDim2.new(0, 120, 0, 48)
+displayName.Size = UDim2.new(1, -135, 0, 18)
+displayName.BackgroundTransparency = 1
+displayName.Text = "@" .. player.DisplayName
+displayName.TextColor3 = COLORS.Gray
+displayName.Font = Enum.Font.Gotham
+displayName.TextSize = 9
+displayName.TextXAlignment = Enum.TextXAlignment.Left
+displayName.Parent = profileCard
+
+-- PAID badge
+
+local paid = Instance.new("TextLabel")
+paid.Position = UDim2.new(0, 120, 0, 73)
+paid.Size = UDim2.fromOffset(48, 22)
+paid.BackgroundColor3 = COLORS.RedDark
+paid.Text = "PAID"
+paid.TextColor3 = COLORS.RedBright
+paid.Font = Enum.Font.GothamBlack
+paid.TextSize = 8
+paid.Parent = profileCard
+
+local paidCorner = Instance.new("UICorner")
+paidCorner.CornerRadius = UDim.new(0, 6)
+paidCorner.Parent = paid
+
+-- Lifetime badge
+
+local lifetime = Instance.new("TextLabel")
+lifetime.Position = UDim2.new(0, 175, 0, 73)
+lifetime.Size = UDim2.fromOffset(72, 22)
+lifetime.BackgroundColor3 = COLORS.Panel2
+lifetime.Text = "LIFETIME"
+lifetime.TextColor3 = COLORS.Gray
+lifetime.Font = Enum.Font.GothamBlack
+lifetime.TextSize = 8
+lifetime.Parent = profileCard
+
+local lifetimeCorner = Instance.new("UICorner")
+lifetimeCorner.CornerRadius = UDim.new(0, 6)
+lifetimeCorner.Parent = lifetime
+
+-- Main status
+
+local statusCard = createCard(mainPage, 210, 85)
+
+local statusTitle = Instance.new("TextLabel")
+statusTitle.Position = UDim2.new(0, 18, 0, 14)
+statusTitle.Size = UDim2.new(1, -36, 0, 18)
+statusTitle.BackgroundTransparency = 1
+statusTitle.Text = "SYSTEM STATUS"
+statusTitle.TextColor3 = COLORS.RedBright
+statusTitle.Font = Enum.Font.GothamBlack
+statusTitle.TextSize = 8
+statusTitle.TextXAlignment = Enum.TextXAlignment.Left
+statusTitle.Parent = statusCard
+
+local statusText = Instance.new("TextLabel")
+statusText.Position = UDim2.new(0, 18, 0, 36)
+statusText.Size = UDim2.new(1, -36, 0, 22)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Ready."
+statusText.TextColor3 = COLORS.White
+statusText.Font = Enum.Font.GothamBold
+statusText.TextSize = 11
+statusText.TextXAlignment = Enum.TextXAlignment.Left
+statusText.Parent = statusCard
+
+local statusDot2 = Instance.new("Frame")
+statusDot2.AnchorPoint = Vector2.new(1, 0.5)
+statusDot2.Position = UDim2.new(1, -18, 0.5, 0)
+statusDot2.Size = UDim2.fromOffset(9, 9)
+statusDot2.BackgroundColor3 = COLORS.Green
+statusDot2.BorderSizePixel = 0
+statusDot2.Parent = statusCard
+
+local statusDotCorner2 = Instance.new("UICorner")
+statusDotCorner2.CornerRadius = UDim.new(1, 0)
+statusDotCorner2.Parent = statusDot2
+
+-- Quick controls
+
+local quick = createCard(mainPage, 310, 125)
+
+local quickTitle = Instance.new("TextLabel")
+quickTitle.Position = UDim2.new(0, 18, 0, 14)
+quickTitle.Size = UDim2.new(1, -36, 0, 18)
+quickTitle.BackgroundTransparency = 1
+quickTitle.Text = "QUICK CONTROLS"
+quickTitle.TextColor3 = COLORS.RedBright
+quickTitle.Font = Enum.Font.GothamBlack
+quickTitle.TextSize = 8
+quickTitle.TextXAlignment = Enum.TextXAlignment.Left
+quickTitle.Parent = quick
+
+createToggle(
+	quick,
+	"Aimbot",
+	"Hold RMB to activate",
+	false,
+	function(state)
+
+		Settings.Aimbot = state
+
+	end,
+	35
+)
+
+createToggle(
+	quick,
+	"Username ESP",
+	"Show player names",
+	false,
+	function(state)
+
+		Settings.UsernameESP = state
+
+	end,
+	89
+)
+
+--==================================================
+-- AIMBOT PAGE
+--==================================================
+
+createPageTitle(
+	aimPage,
+	"Aimbot",
+	"Target the closest player while holding RMB."
+)
+
+local aimCard = createCard(aimPage, 75, 290)
+
+createToggle(
+	aimCard,
+	"Aimbot",
+	"Hold Mouse Button 2 to activate",
+	false,
+	function(state)
+
+		Settings.Aimbot = state
+
+	end,
+	0
+)
+
+createToggle(
+	aimCard,
+	"FOV Radius",
+	"Only target players inside the circle",
+	false,
+	function(state)
+
+		Settings.FOVEnabled = state
+
+	end,
+	54
+)
+
+createInput(
+	aimCard,
+	"FOV Size",
+	"Radius in pixels",
+	Settings.FOVRadius,
+	25,
+	800,
+	function(value)
+
+		Settings.FOVRadius = value
+
+	end,
+	108
+)
+
+createInput(
+	aimCard,
+	"Smoothness",
+	"Camera tracking speed",
+	Settings.Smoothness,
+	0.01,
+	1,
+	function(value)
+
+		Settings.Smoothness = value
+
+	end,
+	166
+)
+
+createInput(
+	aimCard,
+	"Prediction",
+	"Movement prediction amount",
+	Settings.Prediction,
+	0,
+	2,
+	function(value)
+
+		Settings.Prediction = value
+
+	end,
+	224
+)
+
+--==================================================
+-- FOV CIRCLE
+--==================================================
+
+local fovCircle = Instance.new("Frame")
+fovCircle.Name = "FOVCircle"
+fovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+fovCircle.Position = UDim2.fromScale(0.5, 0.5)
+fovCircle.Size = UDim2.fromOffset(
+	Settings.FOVRadius * 2,
+	Settings.FOVRadius * 2
+)
+fovCircle.BackgroundTransparency = 1
+fovCircle.Visible = false
+fovCircle.ZIndex = 50
+fovCircle.Parent = gui
+
+local fovCorner = Instance.new("UICorner")
+fovCorner.CornerRadius = UDim.new(1, 0)
+fovCorner.Parent = fovCircle
+
+local fovStroke = Instance.new("UIStroke")
+fovStroke.Color = COLORS.Red
+fovStroke.Thickness = 2
+fovStroke.Transparency = 0.2
+fovStroke.Parent = fovCircle
+
+--==================================================
+-- ESP PAGE
+--==================================================
+
+createPageTitle(
+	espPage,
+	"ESP",
+	"Visual player information."
+)
+
+local espCard = createCard(espPage, 75, 170)
+
+createToggle(
+	espCard,
+	"Username",
+	"Display the player's username",
+	false,
+	function(state)
+
+		Settings.UsernameESP = state
+
+	end,
+	0
+)
+
+createToggle(
+	espCard,
+	"Skeleton",
+	"Display a simple character skeleton",
+	false,
+	function(state)
+
+		Settings.SkeletonESP = state
+
+	end,
+	54
+)
+
+local espInfo = Instance.new("TextLabel")
+espInfo.Position = UDim2.new(0, 18, 0, 122)
+espInfo.Size = UDim2.new(1, -36, 0, 30)
+espInfo.BackgroundTransparency = 1
+espInfo.Text = "ESP updates automatically when players join or respawn."
+espInfo.TextColor3 = COLORS.Muted
+espInfo.Font = Enum.Font.Gotham
+espInfo.TextSize = 8
+espInfo.TextXAlignment = Enum.TextXAlignment.Left
+espInfo.Parent = espCard
+
+--==================================================
+-- ESP STORAGE
+--==================================================
+
+local espObjects = {}
+
+local function destroyESP(targetPlayer)
+
+	local data = espObjects[targetPlayer]
+
+	if not data then
+		return
+	end
+
+	for _, object in ipairs(data.Objects) do
+
+		if object and object.Parent then
+			object:Destroy()
+		end
+
+	end
+
+	espObjects[targetPlayer] = nil
+
+end
+
+local function createBillboard(character, targetPlayer)
+
+	local head = character:FindFirstChild("Head")
+
+	if not head then
+		return nil
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "SakuraUsername"
+	billboard.Adornee = head
+	billboard.Size = UDim2.fromOffset(180, 32)
+	billboard.StudsOffset = Vector3.new(0, 2.8, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Enabled = Settings.UsernameESP
+	billboard.Parent = head
+
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.Text = targetPlayer.Name
+	text.TextColor3 = COLORS.RedBright
+	text.TextStrokeTransparency = 0.25
+	text.Font = Enum.Font.GothamBold
+	text.TextSize = 12
+	text.Parent = billboard
+
+	return billboard
+end
+
+--==================================================
+-- SKELETON CONNECTIONS
+--==================================================
+
+local R15Connections = {
+
+	{"Head", "UpperTorso"},
+
+	{"UpperTorso", "LowerTorso"},
+
+	{"UpperTorso", "LeftUpperArm"},
+	{"LeftUpperArm", "LeftLowerArm"},
+	{"LeftLowerArm", "LeftHand"},
+
+	{"UpperTorso", "RightUpperArm"},
+	{"RightUpperArm", "RightLowerArm"},
+	{"RightLowerArm", "RightHand"},
+
+	{"LowerTorso", "LeftUpperLeg"},
+	{"LeftUpperLeg", "LeftLowerLeg"},
+	{"LeftLowerLeg", "LeftFoot"},
+
+	{"LowerTorso", "RightUpperLeg"},
+	{"RightUpperLeg", "RightLowerLeg"},
+	{"RightLowerLeg", "RightFoot"},
+
+}
+
+local R6Connections = {
+
+	{"Head", "Torso"},
+
+	{"Torso", "Left Arm"},
+	{"Torso", "Right Arm"},
+
+	{"Torso", "Left Leg"},
+	{"Torso", "Right Leg"},
+
+}
+
+local function createBeam(partA, partB, parent)
+
+	if not partA or not partB then
+		return nil
+	end
+
+	local attachmentA = Instance.new("Attachment")
+	attachmentA.Name = "SakuraAttachment"
+	attachmentA.Position = Vector3.zero
+	attachmentA.Parent = partA
+
+	local attachmentB = Instance.new("Attachment")
+	attachmentB.Name = "SakuraAttachment"
+	attachmentB.Position = Vector3.zero
+	attachmentB.Parent = partB
+
+	local beam = Instance.new("Beam")
+	beam.Name = "SakuraSkeleton"
+	beam.Attachment0 = attachmentA
+	beam.Attachment1 = attachmentB
+
+	beam.FaceCamera = true
+	beam.Width0 = 0.045
+	beam.Width1 = 0.045
+
+	beam.Color = ColorSequence.new(
+		COLORS.RedBright
+	)
+
+	beam.Transparency = NumberSequence.new(0.05)
+
+	beam.Enabled = Settings.SkeletonESP
+	beam.Parent = parent
+
+	return attachmentA, attachmentB, beam
+end
+
+local function createSkeleton(character)
+
+	local folder = Instance.new("Folder")
+	folder.Name = "SakuraSkeleton"
+
+	local createdObjects = {
+		folder
+	}
+
+	local connections = nil
+
+	if character:FindFirstChild("UpperTorso") then
+		connections = R15Connections
+	else
+		connections = R6Connections
+	end
+
+	for _, connection in ipairs(connections) do
+
+		local partA = character:FindFirstChild(connection[1])
+		local partB = character:FindFirstChild(connection[2])
+
+		if partA and partB then
+
+			local attachmentA, attachmentB, beam =
+				createBeam(
+					partA,
+					partB,
+					folder
+				)
+
+			if attachmentA then
+				table.insert(createdObjects, attachmentA)
+			end
+
+			if attachmentB then
+				table.insert(createdObjects, attachmentB)
+			end
+
+			if beam then
+				table.insert(createdObjects, beam)
+			end
+
+		end
+
+	end
+
+	folder.Parent = character
+
+	return createdObjects
+end
+
+--==================================================
+-- BUILD ESP
+--==================================================
+
+local function buildESP(targetPlayer)
+
+	if targetPlayer == player then
+		return
+	end
+
+	destroyESP(targetPlayer)
+
+	local character = targetPlayer.Character
+
+	if not character then
+		return
+	end
+
+	local objects = {}
+
+	local billboard = createBillboard(
+		character,
+		targetPlayer
+	)
+
+	if billboard then
+		table.insert(objects, billboard)
+	end
+
+	local skeletonObjects = createSkeleton(character)
+
+	for _, object in ipairs(skeletonObjects) do
+		table.insert(objects, object)
+	end
+
+	espObjects[targetPlayer] = {
+		Objects = objects
+	}
+
+end
+
+local function updateESP()
+
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+
+		if targetPlayer ~= player then
+
+			local character = targetPlayer.Character
+
+			if character then
+
+				local data = espObjects[targetPlayer]
+
+				if not data then
+
+					buildESP(targetPlayer)
+
+				else
+
+					for _, object in ipairs(data.Objects) do
+
+						if object:IsA("BillboardGui") then
+
+							object.Enabled =
+								Settings.UsernameESP
+
+						elseif object:IsA("Beam") then
+
+							object.Enabled =
+								Settings.SkeletonESP
+
+						end
+
+					end
+
+				end
+
+			end
+
+		end
+
+	end
+
+end
+
+Players.PlayerAdded:Connect(function(targetPlayer)
+
+	targetPlayer.CharacterAdded:Connect(function()
+
+		task.wait(0.5)
+
+		buildESP(targetPlayer)
+
+	end)
+
+end)
+
+Players.PlayerRemoving:Connect(function(targetPlayer)
+
+	destroyESP(targetPlayer)
+
+end)
+
+for _, targetPlayer in ipairs(Players:GetPlayers()) do
+
+	if targetPlayer ~= player then
+
+		targetPlayer.CharacterAdded:Connect(function()
+
+			task.wait(0.5)
+
+			buildESP(targetPlayer)
+
+		end)
+
+	end
+
+end
+
+--==================================================
+-- TELEPORT PAGE
+--==================================================
+
+createPageTitle(
+	teleportPage,
+	"Teleport",
+	"Select a player and teleport to their position."
+)
+
+local teleportCard = createCard(teleportPage, 75, 175)
+
+local selectedPlayer = nil
+
+local playerDropdown = Instance.new("TextButton")
+playerDropdown.Position = UDim2.new(0, 18, 0, 18)
+playerDropdown.Size = UDim2.new(1, -36, 0, 42)
+playerDropdown.BackgroundColor3 = COLORS.Panel2
+playerDropdown.BorderSizePixel = 0
+playerDropdown.Text = "Select Player"
+playerDropdown.TextColor3 = COLORS.Gray
+playerDropdown.Font = Enum.Font.GothamBold
+playerDropdown.TextSize = 10
+playerDropdown.AutoButtonColor = false
+playerDropdown.Parent = teleportCard
+
+local dropdownCorner = Instance.new("UICorner")
+dropdownCorner.CornerRadius = UDim.new(0, 8)
+dropdownCorner.Parent = playerDropdown
+
+local dropdownStroke = Instance.new("UIStroke")
+dropdownStroke.Color = COLORS.Stroke
+dropdownStroke.Thickness = 1
+dropdownStroke.Parent = playerDropdown
+
+local dropdownList = Instance.new("ScrollingFrame")
+dropdownList.Position = UDim2.new(0, 18, 0, 64)
+dropdownList.Size = UDim2.new(1, -36, 0, 90)
+dropdownList.BackgroundColor3 = COLORS.Panel2
+dropdownList.BorderSizePixel = 0
+dropdownList.ScrollBarThickness = 2
+dropdownList.ScrollBarImageColor3 = COLORS.Red
+dropdownList.Visible = false
+dropdownList.CanvasSize = UDim2.new(0, 0, 0, 0)
+dropdownList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+dropdownList.ZIndex = 20
+dropdownList.Parent = teleportCard
+
+local dropdownLayout = Instance.new("UIListLayout")
+dropdownLayout.Padding = UDim.new(0, 3)
+dropdownLayout.Parent = dropdownList
+
+local teleportButton = Instance.new("TextButton")
+teleportButton.Position = UDim2.new(0, 18, 0, 122)
+teleportButton.Size = UDim2.new(1, -36, 0, 38)
+teleportButton.BackgroundColor3 = COLORS.RedDark
+teleportButton.BorderSizePixel = 0
+teleportButton.Text = "TELEPORT"
+teleportButton.TextColor3 = COLORS.White
+teleportButton.Font = Enum.Font.GothamBlack
+teleportButton.TextSize = 9
+teleportButton.AutoButtonColor = false
+teleportButton.Parent = teleportCard
+
+local teleportCorner = Instance.new("UICorner")
+teleportCorner.CornerRadius = UDim.new(0, 8)
+teleportCorner.Parent = teleportButton
+
+local function refreshPlayerList()
+
+	for _, child in ipairs(dropdownList:GetChildren()) do
+
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+
+	end
+
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+
+		if targetPlayer ~= player then
+
+			local option = Instance.new("TextButton")
+			option.Size = UDim2.new(1, -6, 0, 28)
+			option.BackgroundColor3 = COLORS.Card
+			option.BorderSizePixel = 0
+			option.Text = targetPlayer.Name
+			option.TextColor3 = COLORS.White
+			option.Font = Enum.Font.GothamBold
+			option.TextSize = 9
+			option.AutoButtonColor = false
+			option.ZIndex = 21
+			option.Parent = dropdownList
+
+			local optionCorner = Instance.new("UICorner")
+			optionCorner.CornerRadius = UDim.new(0, 6)
+			optionCorner.Parent = option
+
+			option.MouseButton1Click:Connect(function()
+
+				selectedPlayer = targetPlayer
+
+				playerDropdown.Text =
+					targetPlayer.Name
+
+				playerDropdown.TextColor3 =
+					COLORS.White
+
+				dropdownList.Visible = false
+
+			end)
+
+		end
+
+	end
+
+end
+
+playerDropdown.MouseButton1Click:Connect(function()
+
+	refreshPlayerList()
+
+	dropdownList.Visible =
+		not dropdownList.Visible
+
+end)
+
+teleportButton.MouseButton1Click:Connect(function()
+
+	if not selectedPlayer then
+		return
+	end
+
+	local targetCharacter = selectedPlayer.Character
+	local targetRoot = getRoot(targetCharacter)
+	local myRoot = getRoot()
+
+	if targetRoot and myRoot then
+
+		myRoot.CFrame =
+			targetRoot.CFrame
+			* CFrame.new(0, 3, 0)
+
+	end
+
+end)
+
+Players.PlayerAdded:Connect(function()
+	refreshPlayerList()
+end)
+
+Players.PlayerRemoving:Connect(function(leaving)
+
+	if selectedPlayer == leaving then
+
+		selectedPlayer = nil
+
+		playerDropdown.Text =
+			"Select Player"
+
+		playerDropdown.TextColor3 =
+			COLORS.Gray
+
+	end
+
+	refreshPlayerList()
+
+end)
+
+refreshPlayerList()
+
+--==================================================
+-- TARGET SELECTION
+--==================================================
+
+local function getClosestTarget()
+
+	local myCharacter = getCharacter()
+
+	if not myCharacter then
+		return nil
+	end
+
+	local center = Vector2.new(
+		camera.ViewportSize.X / 2,
+		camera.ViewportSize.Y / 2
+	)
+
+	local closest = nil
+	local closestDistance = math.huge
+
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+
+		if targetPlayer ~= player then
+
+			local character = targetPlayer.Character
+			local humanoid = getHumanoid(character)
+			local aimPart = getAimPart(character)
+
+			if humanoid
+				and humanoid.Health > 0
+				and aimPart then
+
+				local screenPosition, visible =
+					camera:WorldToViewportPoint(
+						aimPart.Position
+					)
+
+				if visible and screenPosition.Z > 0 then
+
+					local point = Vector2.new(
+						screenPosition.X,
+						screenPosition.Y
+					)
+
+					local distance =
+						(point - center).Magnitude
+
+					local allowed =
+						Settings.FOVEnabled
+						and Settings.FOVRadius
+						or math.huge
+
+					if distance <= allowed
+						and distance < closestDistance then
+
+						closestDistance = distance
+						closest = targetPlayer
+
+					end
+
+				end
+
+			end
+
+		end
+
+	end
+
+	return closest
+end
+
+--==================================================
+-- AIM
+--==================================================
+
+local function aimAt(targetPlayer, deltaTime)
+
+	if not targetPlayer then
+		return
+	end
+
+	local character = targetPlayer.Character
+
+	local humanoid = getHumanoid(character)
+	local aimPart = getAimPart(character)
+
+	if not humanoid
+		or humanoid.Health <= 0
+		or not aimPart then
+
+		return
+
+	end
+
+	local predicted =
+		aimPart.Position
+		+ (
+			aimPart.AssemblyLinearVelocity
+			* Settings.Prediction
+		)
+
+	local cameraPosition =
+		camera.CFrame.Position
+
+	local desired =
+		CFrame.lookAt(
+			cameraPosition,
+			predicted
+		)
+
+	local alpha =
+		1 - math.exp(
+			-math.clamp(
+				Settings.Smoothness,
+				0.01,
+				1
+			)
+			* 12
+			* deltaTime
+		)
+
+	camera.CFrame =
+		camera.CFrame:Lerp(
+			desired,
+			alpha
+		)
+
+end
+
+--==================================================
+-- RMB
+--==================================================
+
+UserInputService.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton2 then
+
+		Settings.AimHeld = true
+
+	end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton2 then
+
+		Settings.AimHeld = false
+		currentTarget = nil
+
+	end
+
+end)
+
+--==================================================
+-- FOV UPDATE
+--==================================================
+
+RunService.RenderStepped:Connect(function(deltaTime)
+
+	camera = workspace.CurrentCamera
+
+	fovCircle.Visible =
+		Settings.FOVEnabled
+
+	if Settings.FOVEnabled then
+
+		fovCircle.Position =
+			UDim2.fromOffset(
+				camera.ViewportSize.X / 2,
+				camera.ViewportSize.Y / 2
+			)
+
+		fovCircle.Size =
+			UDim2.fromOffset(
+				Settings.FOVRadius * 2,
+				Settings.FOVRadius * 2
+			)
+
+	end
+
+	--==================================================
+	-- AIMBOT
+	--==================================================
+
+	if Settings.Aimbot
+		and Settings.AimHeld then
+
+		if not currentTarget then
+			currentTarget = getClosestTarget()
+		end
+
+		if currentTarget then
+
+			local character =
+				currentTarget.Character
+
+			local humanoid =
+				getHumanoid(character)
+
+			if not humanoid
+				or humanoid.Health <= 0 then
+
+				currentTarget =
+					getClosestTarget()
+
+			end
+
+		end
+
+		if currentTarget then
+			aimAt(
+				currentTarget,
+				deltaTime
+			)
+		end
+
+	end
+
+end)
+
+--==================================================
+-- ESP UPDATE LOOP
+--==================================================
+
+task.spawn(function()
+
+	while gui.Parent do
+
+		updateESP()
+
+		task.wait(0.25)
+
+	end
+
+end)
+
+--==================================================
+-- UI STATUS UPDATE
+--==================================================
+
+task.spawn(function()
+
+	while gui.Parent do
+
+		if Settings.Aimbot then
+
+			if Settings.AimHeld then
+
+				if currentTarget then
+
+					statusText.Text =
+						"Locked onto "
+						.. currentTarget.Name
+
+				else
+
+					statusText.Text =
+						"Searching for target..."
+
+				end
+
+			else
+
+				statusText.Text =
+					"Ready • Hold RMB"
+
+			end
+
+		else
+
+			statusText.Text =
+				"Aimbot disabled"
+
+		end
+
+		task.wait(0.15)
+
+	end
+
+end)
+
+--==================================================
+-- DRAGGING
+--==================================================
+
+local dragging = false
+local dragStart = nil
+local startPosition = nil
+
+local dragArea = Instance.new("Frame")
+dragArea.Position = UDim2.new(0, 190, 0, 2)
+dragArea.Size = UDim2.new(1, -190, 0, 55)
+dragArea.BackgroundTransparency = 1
+dragArea.ZIndex = 100
+dragArea.Parent = main
+
+dragArea.InputBegan:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1 then
+
+		dragging = true
+		dragStart = input.Position
+		startPosition = main.Position
+
+	end
+
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if dragging
+		and input.UserInputType ==
+		Enum.UserInputType.MouseMovement then
+
+		local delta =
+			input.Position - dragStart
+
+		main.Position =
+			UDim2.new(
+				startPosition.X.Scale,
+				startPosition.X.Offset + delta.X,
+				startPosition.Y.Scale,
+				startPosition.Y.Offset + delta.Y
+			)
+
+		shadow.Position =
+			main.Position
+
+	end
+
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType ==
+		Enum.UserInputType.MouseButton1 then
+
+		dragging = false
+
+	end
+
+end)
+
+--==================================================
+-- RIGHT ALT UI TOGGLE
+--==================================================
+
+local uiVisible = true
+
+local function toggleUI()
+
+	uiVisible = not uiVisible
+
+	if uiVisible then
+
+		main.Visible = true
+		shadow.Visible = true
+
+		main.Size =
+			UDim2.fromOffset(
+				790,
+				545
+			)
+
+		TweenService:Create(
+			main,
+			TweenInfo.new(
+				0.2,
+				Enum.EasingStyle.Quint,
+				Enum.EasingDirection.Out
+			),
+			{
+				Size =
+					UDim2.fromOffset(
+						820,
+						570
+					)
+			}
+		):Play()
+
+	else
+
+		TweenService:Create(
+			main,
+			TweenInfo.new(
+				0.15,
+				Enum.EasingStyle.Quint,
+				Enum.EasingDirection.In
+			),
+			{
+				Size =
+					UDim2.fromOffset(
+						790,
+						545
+					)
+			}
+		):Play()
+
+		task.delay(0.15, function()
+
+			if not uiVisible then
+
+				main.Visible = false
+				shadow.Visible = false
+
+			end
+
+		end)
+
+	end
+
+end
+
+UserInputService.InputBegan:Connect(function(input)
+
+	if input.KeyCode ==
+		Enum.KeyCode.RightAlt then
+
+		toggleUI()
+
+	end
+
+end)
+
+--==================================================
+-- RESPAWN SUPPORT
+--==================================================
+
+player.CharacterAdded:Connect(function()
+
+	currentTarget = nil
+
+	task.wait(0.5)
+
+end)
+
+--==================================================
+-- INITIAL PAGE
+--==================================================
+
+showPage("MAIN")
+
+--==================================================
+-- INITIAL ESP
+--==================================================
+
+task.delay(1, function()
+
+	for _, targetPlayer in ipairs(Players:GetPlayers()) do
+
+		if targetPlayer ~= player then
+			buildESP(targetPlayer)
+		end
+
+	end
+
+end)
