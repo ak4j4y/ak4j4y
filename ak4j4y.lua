@@ -1,7 +1,7 @@
 --[[
     sakura.gg
 
-    LocalScript for your own Roblox experience.
+
 
     FEATURES
     - Premium red/black UI
