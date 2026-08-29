@@ -1,6 +1,5 @@
 --[[
     AK4J4Y BY JAYCO
-   
 
     FEATURES
     - Premium red/black UI
@@ -12,7 +11,7 @@
     - Adjustable aim smoothness
     - Adjustable prediction
     - Noclip
-    - WalkSpeed
+    - Sprint Tool
     - FOV Circle
     - Respawn support
 ]]
@@ -33,12 +32,15 @@ local noclip = false
 local fovCircleEnabled = false
 local lockOn = false
 
-local walkSpeed = 16
+local normalSpeed = 16
+local sprintSpeed = 24
+
 local aimSmoothness = 0.15
 local prediction = 0.12
 local fovRadius = 110
 
 local lockedTarget = nil
+local sprintToolGiven = false
 
 -- UI
 local uiVisible = true
@@ -76,6 +78,89 @@ end
 local function getRoot()
 	local character = getCharacter()
 	return character and character:FindFirstChild("HumanoidRootPart")
+end
+
+--==================================================
+-- SPRINT TOOL
+--==================================================
+
+local function createSprintTool()
+	if sprintToolGiven then
+		return
+	end
+
+	local backpack = player:WaitForChild("Backpack")
+
+	-- Don't create a duplicate
+	if backpack:FindFirstChild("AK4J4Y Sprint") then
+		sprintToolGiven = true
+		return
+	end
+
+	local character = getCharacter()
+
+	if character and character:FindFirstChild("AK4J4Y Sprint") then
+		sprintToolGiven = true
+		return
+	end
+
+	local tool = Instance.new("Tool")
+	tool.Name = "AK4J4Y Sprint"
+	tool.RequiresHandle = false
+	tool.CanBeDropped = false
+	tool.ToolTip = "Click to toggle sprint"
+
+	local sprinting = false
+
+	local function setSprint(enabled)
+		local humanoid = getHumanoid()
+
+		if not humanoid then
+			return
+		end
+
+		sprinting = enabled
+
+		if sprinting then
+			humanoid.WalkSpeed = sprintSpeed
+			tool.ToolTip = "Sprint: ON"
+		else
+			humanoid.WalkSpeed = normalSpeed
+			tool.ToolTip = "Sprint: OFF"
+		end
+	end
+
+	tool.Activated:Connect(function()
+		setSprint(not sprinting)
+	end)
+
+	tool.Equipped:Connect(function()
+		local humanoid = getHumanoid()
+
+		if humanoid then
+			humanoid.WalkSpeed =
+				sprinting and sprintSpeed or normalSpeed
+		end
+	end)
+
+	tool.Unequipped:Connect(function()
+		setSprint(false)
+	end)
+
+	player.CharacterAdded:Connect(function()
+		sprinting = false
+
+		task.wait(0.5)
+
+		local humanoid = getHumanoid()
+
+		if humanoid then
+			humanoid.WalkSpeed = normalSpeed
+		end
+	end)
+
+	tool.Parent = backpack
+	sprintToolGiven = true
 end
 
 --==================================================
@@ -146,7 +231,6 @@ local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 18)
 headerCorner.Parent = header
 
--- Header red glow
 local headerGlow = Instance.new("Frame")
 headerGlow.Position = UDim2.new(0, 0, 1, -2)
 headerGlow.Size = UDim2.new(1, 0, 0, 2)
@@ -155,7 +239,6 @@ headerGlow.BorderSizePixel = 0
 headerGlow.ZIndex = 4
 headerGlow.Parent = header
 
--- Logo
 local logo = Instance.new("TextLabel")
 logo.Position = UDim2.new(0, 20, 0, 13)
 logo.Size = UDim2.new(0, 200, 0, 30)
@@ -192,7 +275,6 @@ version.TextXAlignment = Enum.TextXAlignment.Left
 version.ZIndex = 5
 version.Parent = header
 
--- Right Alt badge
 local keyBadge = Instance.new("TextLabel")
 keyBadge.AnchorPoint = Vector2.new(1, 0)
 keyBadge.Position = UDim2.new(1, -18, 0, 20)
@@ -569,14 +651,10 @@ end)
 
 createSection("MOVEMENT")
 
-createValueBox("WalkSpeed", walkSpeed, 1, 200, function(value)
+createToggle("Sprint Tool", false, function(enabled)
 
-	walkSpeed = value
-
-	local humanoid = getHumanoid()
-
-	if humanoid then
-		humanoid.WalkSpeed = walkSpeed
+	if enabled then
+		createSprintTool()
 	end
 end)
 
@@ -931,14 +1009,6 @@ end
 
 RunService.RenderStepped:Connect(function()
 
-	-- WalkSpeed
-	local humanoid = getHumanoid()
-
-	if humanoid then
-		humanoid.WalkSpeed =
-			walkSpeed
-	end
-
 	-- Noclip
 	if noclip then
 
@@ -1038,8 +1108,7 @@ player.CharacterAdded:Connect(function(character)
 		)
 
 	if humanoid then
-		humanoid.WalkSpeed =
-			walkSpeed
+		humanoid.WalkSpeed = normalSpeed
 	end
 
 	lockedTarget = nil
