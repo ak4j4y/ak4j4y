@@ -1,5 +1,5 @@
 --[[
-    SAKURA.gg D/J
+     sakura.gg
 
     FEATURES
     - Premium red/black UI
@@ -11,7 +11,6 @@
     - Adjustable aim smoothness
     - Adjustable prediction
     - Noclip
-    - Sprint Tool
     - FOV Circle
     - Respawn support
 ]]
@@ -32,15 +31,11 @@ local noclip = false
 local fovCircleEnabled = false
 local lockOn = false
 
-local normalSpeed = 16
-local sprintSpeed = 24
-
 local aimSmoothness = 0.15
 local prediction = 0.12
 local fovRadius = 110
 
 local lockedTarget = nil
-local sprintToolGiven = false
 
 -- UI
 local uiVisible = true
@@ -70,97 +65,9 @@ local function getCharacter()
 	return player.Character
 end
 
-local function getHumanoid()
-	local character = getCharacter()
-	return character and character:FindFirstChildOfClass("Humanoid")
-end
-
 local function getRoot()
 	local character = getCharacter()
 	return character and character:FindFirstChild("HumanoidRootPart")
-end
-
---==================================================
--- SPRINT TOOL
---==================================================
-
-local function createSprintTool()
-	if sprintToolGiven then
-		return
-	end
-
-	local backpack = player:WaitForChild("Backpack")
-
-	-- Don't create a duplicate
-	if backpack:FindFirstChild("AK4J4Y Sprint") then
-		sprintToolGiven = true
-		return
-	end
-
-	local character = getCharacter()
-
-	if character and character:FindFirstChild("AK4J4Y Sprint") then
-		sprintToolGiven = true
-		return
-	end
-
-	local tool = Instance.new("Tool")
-	tool.Name = "AK4J4Y Sprint"
-	tool.RequiresHandle = false
-	tool.CanBeDropped = false
-	tool.ToolTip = "Click to toggle sprint"
-
-	local sprinting = false
-
-	local function setSprint(enabled)
-		local humanoid = getHumanoid()
-
-		if not humanoid then
-			return
-		end
-
-		sprinting = enabled
-
-		if sprinting then
-			humanoid.WalkSpeed = sprintSpeed
-			tool.ToolTip = "Sprint: ON"
-		else
-			humanoid.WalkSpeed = normalSpeed
-			tool.ToolTip = "Sprint: OFF"
-		end
-	end
-
-	tool.Activated:Connect(function()
-		setSprint(not sprinting)
-	end)
-
-	tool.Equipped:Connect(function()
-		local humanoid = getHumanoid()
-
-		if humanoid then
-			humanoid.WalkSpeed =
-				sprinting and sprintSpeed or normalSpeed
-		end
-	end)
-
-	tool.Unequipped:Connect(function()
-		setSprint(false)
-	end)
-
-	player.CharacterAdded:Connect(function()
-		sprinting = false
-
-		task.wait(0.5)
-
-		local humanoid = getHumanoid()
-
-		if humanoid then
-			humanoid.WalkSpeed = normalSpeed
-		end
-	end)
-
-	tool.Parent = backpack
-	sprintToolGiven = true
 end
 
 --==================================================
@@ -168,7 +75,7 @@ end
 --==================================================
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "AK4J4Y_BY_JAYCO"
+gui.Name = "sakura.gg"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.Parent = player:WaitForChild("PlayerGui")
@@ -649,15 +556,6 @@ createToggle("FOV Circle", false, function(enabled)
 	fovCircle.Visible = enabled
 end)
 
-createSection("MOVEMENT")
-
-createToggle("Sprint Tool", false, function(enabled)
-
-	if enabled then
-		createSprintTool()
-	end
-end)
-
 createSection("LOCK-ON")
 
 createValueBox("Smoothness", aimSmoothness, 0.01, 1, function(value)
@@ -1099,17 +997,6 @@ end)
 --==================================================
 
 player.CharacterAdded:Connect(function(character)
-
-	task.wait(0.5)
-
-	local humanoid =
-		character:FindFirstChildOfClass(
-			"Humanoid"
-		)
-
-	if humanoid then
-		humanoid.WalkSpeed = normalSpeed
-	end
 
 	lockedTarget = nil
 	lockOn = false
